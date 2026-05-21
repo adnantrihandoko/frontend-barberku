@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:barberku_app/core/core.dart';
 import 'package:barberku_app/features/admin/presentation/widgets/admin_queue_list.dart';
 import 'package:barberku_app/features/admin/presentation/widgets/walk_in_dialog.dart';
+import 'package:barberku_app/features/admin/presentation/screens/service_management_screen.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -53,6 +54,17 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             icon: const Icon(Icons.phone_android),
             onPressed: _onCallNext,
             tooltip: 'Panggil Berikutnya',
+          ),
+          IconButton(
+            icon: const Icon(Icons.content_cut),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const ServiceManagementScreen(),
+                ),
+              );
+            },
+            tooltip: 'Manajemen Layanan',
           ),
           IconButton(
             icon: const Icon(Icons.logout),
