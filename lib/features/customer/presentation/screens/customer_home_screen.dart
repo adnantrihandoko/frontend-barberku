@@ -1,17 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberku_app/core/core.dart';
 import 'package:barberku_app/features/customer/presentation/widgets/join_queue_bottom_sheet.dart';
+import 'package:barberku_app/features/customer/presentation/widgets/realtime_queue_list.dart';
 import 'package:barberku_app/features/customer/presentation/widgets/customer_queue_list.dart';
 
-class CustomerHomeScreen extends StatefulWidget {
+class CustomerHomeScreen extends ConsumerStatefulWidget {
   const CustomerHomeScreen({super.key});
 
   @override
-  State<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
+  ConsumerState<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
 }
 
-class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
+class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   Map<String, dynamic>? _activeQueue;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(webSocketProvider.notifier).connect();
+    });
+  }
 
   void _onJoinQueue() async {
     final result = await showModalBottomSheet<Map<String, dynamic>>(
@@ -84,11 +94,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Widget _buildJoinQueueView() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -156,9 +168,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          const CustomerQueueList(),
-        ],
-      ),
+          const Expanded(
+            child: RealtimeQueueList(),
+          ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

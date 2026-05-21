@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:barberku_app/core/providers/core_providers.dart';
+import 'package:barberku_app/core/core.dart';
 import 'package:barberku_app/features/queue/data/datasources/queue_remote_data_source.dart';
 import 'package:barberku_app/features/queue/data/repositories/queue_repository_impl.dart';
 import 'package:barberku_app/features/queue/domain/repositories/queue_repository.dart';
@@ -7,11 +7,11 @@ import 'package:barberku_app/features/queue/domain/usecases/queue_usecases.dart'
 import 'package:barberku_app/features/queue/domain/entities/queue_entity.dart';
 
 final queueRemoteDataSourceProvider = Provider<QueueRemoteDataSource>((ref) {
-  final channel = ref.watch(webSocketChannelProvider);
-  if (channel == null) {
-    throw Exception('WebSocket channel not initialized');
+  final wsState = ref.watch(webSocketProvider);
+  if (wsState.status != ConnectionStatus.connected) {
+    throw Exception('WebSocket not connected');
   }
-  return QueueRemoteDataSource(channel);
+  return QueueRemoteDataSource();
 });
 
 final queueRepositoryProvider = Provider<QueueRepository>((ref) {
