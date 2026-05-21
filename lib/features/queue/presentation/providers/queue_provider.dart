@@ -39,8 +39,13 @@ final getQueueDetailProvider = Provider<GetQueueDetail>((ref) {
   return GetQueueDetail(repository);
 });
 
+final watchQueueListUseCaseProvider = Provider<WatchQueueList>((ref) {
+  final repository = ref.watch(queueRepositoryProvider);
+  return WatchQueueList(repository);
+});
+
 final watchQueueListProvider = StreamProvider<List<QueueEntity>>((ref) {
-  final useCase = ref.watch(watchQueueListProvider);
+  final useCase = ref.watch(watchQueueListUseCaseProvider);
   return useCase();
 });
 

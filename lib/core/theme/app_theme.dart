@@ -14,7 +14,6 @@ class AppTheme {
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: AppColors.surfaceLight,
-        background: AppColors.backgroundLight,
         error: AppColors.error,
       ),
       scaffoldBackgroundColor: AppColors.backgroundLight,
@@ -29,7 +28,7 @@ class AppTheme {
           fontWeight: FontWeight.w600,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -48,7 +47,6 @@ class AppTheme {
         backgroundColor: AppColors.surfaceLight,
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.textSecondaryLight,
-        type: BottomNavigationBarType.floating,
         elevation: 8,
       ),
       textTheme: const TextTheme(
@@ -155,7 +153,6 @@ class AppTheme {
         primary: AppColors.primaryLight,
         secondary: AppColors.secondaryLight,
         surface: AppColors.surfaceDark,
-        background: AppColors.backgroundDark,
         error: AppColors.error,
       ),
       scaffoldBackgroundColor: AppColors.backgroundDark,
@@ -170,7 +167,7 @@ class AppTheme {
           fontWeight: FontWeight.w600,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -189,7 +186,6 @@ class AppTheme {
         backgroundColor: AppColors.surfaceDark,
         selectedItemColor: AppColors.primaryLight,
         unselectedItemColor: AppColors.textSecondaryDark,
-        type: BottomNavigationBarType.floating,
         elevation: 8,
       ),
       textTheme: const TextTheme(
