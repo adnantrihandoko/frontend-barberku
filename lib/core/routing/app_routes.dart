@@ -142,19 +142,6 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('Login Screen'),
-      ),
-    );
-  }
-}
-
 class QueueDetailScreen extends StatelessWidget {
   final String queueId;
   const QueueDetailScreen({super.key, required this.queueId});
