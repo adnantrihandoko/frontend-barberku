@@ -7,4 +7,7 @@ export 'providers/websocket_provider.dart';
 export 'providers/turn_notification_provider.dart';
 export 'providers/cancel_provider.dart';
 export 'providers/active_queue_provider.dart';
+export 'providers/fcm_provider.dart';
+export 'providers/fcm_register_provider.dart';
+export 'services/fcm_service.dart';
 export 'utils/logger.dart';
