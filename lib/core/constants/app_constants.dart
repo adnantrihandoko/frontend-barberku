@@ -30,6 +30,9 @@ class AppConstants {
   static const String keyUserId = 'user_id';
   static const String keyUserRole = 'user_role';
   static const String keyThemeMode = 'theme_mode';
+  static const String keyCancelCount = 'cancel_count';
+  static const String keyLastCancelDate = 'last_cancel_date';
+  static const String keyCooldownUntil = 'cooldown_until';
   
   // Animation Durations
   static const Duration animationShort = Duration(milliseconds: 200);

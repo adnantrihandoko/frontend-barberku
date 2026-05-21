@@ -5,6 +5,7 @@ import 'package:barberku_app/features/customer/presentation/widgets/join_queue_b
 import 'package:barberku_app/features/customer/presentation/widgets/realtime_queue_list.dart';
 import 'package:barberku_app/features/customer/presentation/widgets/customer_queue_list.dart';
 import 'package:barberku_app/features/customer/presentation/widgets/called_dialog.dart';
+import 'package:barberku_app/features/customer/presentation/widgets/cancel_dialogs.dart';
 
 class CustomerHomeScreen extends ConsumerStatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -71,6 +72,67 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
         ),
       );
     }
+  }
+
+  void _onCancelQueue() {
+    if (_activeQueue == null) return;
+
+    final cancelState = ref.read(cancelProvider);
+
+    if (!cancelState.canCancel) {
+      if (cancelState.isInCooldown) {
+        showDialog(
+          context: context,
+          builder: (context) => CooldownDialog(cooldownUntil: cancelState.cooldownUntil!),
+        );
+      } else {
+        showDialog(
+          context: context,
+          builder: (context) => const CancelLimitReachedDialog(),
+        );
+      }
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => CancelConfirmationDialog(
+        remainingCancels: cancelState.remainingCancels,
+        onConfirm: () async {
+          final success = await ref.read(cancelProvider.notifier).cancelQueue(_activeQueue!['id'] ?? '');
+          
+          if (success && mounted) {
+            setState(() {
+              _activeQueue = null;
+            });
+            
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.white),
+                      SizedBox(width: 12),
+                      Expanded(child: Text('Antrian berhasil dibatalkan')),
+                    ],
+                  ),
+                  backgroundColor: AppColors.success,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          } else if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Gagal membatalkan antrian'),
+                backgroundColor: AppColors.error,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
+      ),
+    );
   }
 
   @override
@@ -294,18 +356,21 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _activeQueue = null;
-                          });
+                      child: Consumer(
+                        builder: (context, ref, child) {
+                          final cancelState = ref.watch(cancelProvider);
+                          final canCancel = cancelState.canCancel;
+                          
+                          return ElevatedButton.icon(
+                            onPressed: canCancel ? _onCancelQueue : null,
+                            icon: const Icon(Icons.cancel),
+                            label: Text(canCancel ? 'Batalkan' : 'Tidak Bisa'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: canCancel ? AppColors.error : AppColors.textSecondaryLight,
+                              foregroundColor: Colors.white,
+                            ),
+                          );
                         },
-                        icon: const Icon(Icons.cancel),
-                        label: const Text('Batalkan'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.error,
-                          foregroundColor: Colors.white,
-                        ),
                       ),
                     ),
                   ],
