@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:barberku_app/core/constants/app_constants.dart';
 import 'package:barberku_app/features/auth/presentation/screens/admin_login_screen.dart';
+import 'package:barberku_app/features/admin/admin.dart';
 
 part 'app_routes.dart';
 
@@ -42,6 +43,11 @@ class AppRouter {
         path: AppRoutes.login,
         name: 'login',
         builder: (context, state) => const AdminLoginScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.adminDashboard,
+        name: 'admin-dashboard',
+        builder: (context, state) => const AdminDashboardScreen(),
       ),
       GoRoute(
         path: AppRoutes.queueDetail,

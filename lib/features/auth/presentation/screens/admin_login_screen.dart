@@ -39,7 +39,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
 
     if (state.isAuthenticated) {
       if (mounted) {
-        context.go(AppRoutes.home);
+        context.go(AppRoutes.adminDashboard);
       }
     } else if (state.error != null) {
       if (mounted) {

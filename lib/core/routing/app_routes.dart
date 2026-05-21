@@ -8,6 +8,7 @@ class AppRoutes {
   static const String history = '/history';
   static const String profile = '/profile';
   static const String login = '/login';
+  static const String adminDashboard = '/admin/dashboard';
   static const String queueDetail = '/queue/:id';
 }
 
