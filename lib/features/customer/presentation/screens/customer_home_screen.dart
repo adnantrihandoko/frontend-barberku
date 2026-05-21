@@ -4,6 +4,7 @@ import 'package:barberku_app/core/core.dart';
 import 'package:barberku_app/features/customer/presentation/widgets/join_queue_bottom_sheet.dart';
 import 'package:barberku_app/features/customer/presentation/widgets/realtime_queue_list.dart';
 import 'package:barberku_app/features/customer/presentation/widgets/customer_queue_list.dart';
+import 'package:barberku_app/features/customer/presentation/widgets/called_dialog.dart';
 
 class CustomerHomeScreen extends ConsumerStatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -74,6 +75,19 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final turnState = ref.watch(turnNotificationProvider);
+    
+    if (turnState.isCalled) {
+      return CalledDialog(
+        customerName: turnState.customerName ?? 'Pelanggan',
+        barberName: turnState.barberName,
+        queueNumber: turnState.queueNumber ?? 0,
+        onDismiss: () {
+          ref.read(turnNotificationProvider.notifier).dismiss();
+        },
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppConstants.appName),
