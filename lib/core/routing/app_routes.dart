@@ -12,57 +12,20 @@ class AppRoutes {
   static const String queueDetail = '/queue/:id';
 }
 
-class MainShell extends StatelessWidget {
+class MainShell extends ConsumerWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: child,
-      bottomNavigationBar: const FloatingBottomNavBar(),
-    );
-  }
-}
-
-class FloatingBottomNavBar extends StatelessWidget {
-  const FloatingBottomNavBar({super.key});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = _getCurrentIndex(context);
+    final hasActiveQueue = ref.watch(activeQueueProvider);
     
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BottomNavigationBar(
-          currentIndex: currentIndex,
-          onTap: (index) => _onItemTapped(context, index),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.format_list_numbered_outlined),
-              activeIcon: Icon(Icons.format_list_numbered),
-              label: 'My Queue',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.history_outlined),
-              activeIcon: Icon(Icons.history),
-              label: 'History',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profile',
-            ),
-          ],
-        ),
-      ),
+    return ResponsiveNavigation(
+      currentIndex: currentIndex,
+      hasActiveQueue: hasActiveQueue,
+      onDestinationSelected: (index) => _onItemTapped(context, index),
+      child: child,
     );
   }
 

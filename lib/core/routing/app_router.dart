@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:barberku_app/features/auth/presentation/screens/admin_login_screen.dart';
 import 'package:barberku_app/features/admin/admin.dart';
 import 'package:barberku_app/core/routing/home_screen.dart';
+import 'package:barberku_app/core/providers/active_queue_provider.dart';
+import 'package:barberku_app/shared/widgets/responsive_navigation.dart';
 
 part 'app_routes.dart';
 
