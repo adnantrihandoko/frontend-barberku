@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:barberku_app/core/constants/app_constants.dart';
 import 'package:barberku_app/features/auth/presentation/screens/admin_login_screen.dart';
 import 'package:barberku_app/features/admin/admin.dart';
+import 'package:barberku_app/core/routing/home_screen.dart';
 
 part 'app_routes.dart';
 
