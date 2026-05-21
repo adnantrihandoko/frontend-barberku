@@ -6,6 +6,7 @@ import 'package:barberku_app/features/admin/admin.dart';
 import 'package:barberku_app/core/routing/home_screen.dart';
 import 'package:barberku_app/core/providers/active_queue_provider.dart';
 import 'package:barberku_app/shared/widgets/responsive_navigation.dart';
+import 'package:barberku_app/features/history/history.dart' as history_feature;
 
 part 'app_routes.dart';
 
