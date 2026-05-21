@@ -7,6 +7,7 @@ import 'package:barberku_app/features/admin/presentation/widgets/walk_in_dialog.
 import 'package:barberku_app/features/admin/presentation/screens/service_management_screen.dart';
 import 'package:barberku_app/features/admin/presentation/screens/barber_management_screen.dart';
 import 'package:barberku_app/features/admin/presentation/screens/store_settings_screen.dart';
+import 'package:barberku_app/features/admin/presentation/screens/stats_dashboard_screen.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -78,6 +79,17 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               );
             },
             tooltip: 'Manajemen Barber',
+          ),
+          IconButton(
+            icon: const Icon(Icons.bar_chart),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const StatsDashboardScreen(),
+                ),
+              );
+            },
+            tooltip: 'Statistik Harian',
           ),
           IconButton(
             icon: const Icon(Icons.settings),
