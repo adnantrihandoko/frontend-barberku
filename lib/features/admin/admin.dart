@@ -1,3 +1,9 @@
+export 'data/models/service_model.dart';
+export 'data/models/barber_model.dart';
+export 'data/models/settings_model.dart';
+export 'data/models/stats_model.dart';
+export 'data/datasources/admin_remote_data_source.dart';
+export 'presentation/providers/admin_providers.dart';
 export 'presentation/screens/admin_dashboard_screen.dart';
 export 'presentation/screens/service_management_screen.dart';
 export 'presentation/screens/barber_management_screen.dart';

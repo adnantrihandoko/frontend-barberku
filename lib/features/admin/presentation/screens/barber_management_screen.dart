@@ -1,72 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberku_app/core/theme/app_colors.dart';
+import 'package:barberku_app/features/admin/presentation/providers/admin_providers.dart';
+import 'package:barberku_app/features/admin/data/models/barber_model.dart';
 
-class BarberModel {
-  final String id;
-  final String name;
-  final String specialty;
-  final bool isActive;
-
-  const BarberModel({
-    required this.id,
-    required this.name,
-    required this.specialty,
-    this.isActive = true,
-  });
-}
-
-class BarberManagementScreen extends StatefulWidget {
+class BarberManagementScreen extends ConsumerStatefulWidget {
   const BarberManagementScreen({super.key});
 
   @override
-  State<BarberManagementScreen> createState() => _BarberManagementScreenState();
+  ConsumerState<BarberManagementScreen> createState() => _BarberManagementScreenState();
 }
 
-class _BarberManagementScreenState extends State<BarberManagementScreen> {
-  final List<BarberModel> _barbers = [
-    const BarberModel(
-      id: '1',
-      name: 'Andi',
-      specialty: 'Senior Barber',
-    ),
-    const BarberModel(
-      id: '2',
-      name: 'Budi',
-      specialty: 'Hair Stylist',
-    ),
-    const BarberModel(
-      id: '3',
-      name: 'Candra',
-      specialty: 'Junior Barber',
-    ),
-  ];
-
+class _BarberManagementScreenState extends ConsumerState<BarberManagementScreen> {
   void _onAddBarber() async {
-    final result = await showDialog<BarberModel>(
+    final result = await showDialog<bool>(
       context: context,
       builder: (context) => const BarberDialog(),
     );
 
-    if (result != null) {
-      setState(() {
-        _barbers.add(result);
-      });
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Barber berhasil ditambahkan'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
   void _onEditBarber(BarberModel barber) async {
-    final result = await showDialog<BarberModel>(
+    final result = await showDialog<bool>(
       context: context,
       builder: (context) => BarberDialog(barber: barber),
     );
 
-    if (result != null) {
-      setState(() {
-        final index = _barbers.indexWhere((b) => b.id == result.id);
-        if (index != -1) {
-          _barbers[index] = result;
-        }
-      });
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Barber berhasil diperbarui'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -94,30 +70,62 @@ class _BarberManagementScreenState extends State<BarberManagementScreen> {
     );
 
     if (confirmed == true) {
-      setState(() {
-        _barbers.removeWhere((b) => b.id == barber.id);
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Barber "${barber.name}" berhasil dihapus'),
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      try {
+        await ref.read(deleteBarberProvider).call(barber.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Barber "${barber.name}" berhasil dihapus'),
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString().replaceFirst('Exception: ', '')),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final barbersAsync = ref.watch(barbersProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manajemen Barber'),
       ),
-      body: _barbers.isEmpty
-          ? const Center(
+      body: barbersAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+              const SizedBox(height: 16),
+              Text(
+                error.toString().replaceFirst('Exception: ', ''),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(barbersProvider),
+                child: const Text('Coba Lagi'),
+              ),
+            ],
+          ),
+        ),
+        data: (barbers) {
+          if (barbers.isEmpty) {
+            return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -126,82 +134,86 @@ class _BarberManagementScreenState extends State<BarberManagementScreen> {
                   Text('Belum ada barber'),
                 ],
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _barbers.length,
-              itemBuilder: (context, index) {
-                final barber = _barbers[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: barber.isActive
-                            ? AppColors.primary.withValues(alpha: 0.1)
-                            : AppColors.textSecondaryLight.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.person,
-                        color: barber.isActive ? AppColors.primary : AppColors.textSecondaryLight,
-                      ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: barbers.length,
+            itemBuilder: (context, index) {
+              final barber = barbers[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: barber.isActive
+                          ? AppColors.primary.withValues(alpha: 0.1)
+                          : AppColors.textSecondaryLight.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    title: Text(
-                      barber.name,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: barber.isActive ? null : AppColors.textSecondaryLight,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 4),
-                        Text(barber.specialty),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: barber.isActive
-                                ? AppColors.success.withValues(alpha: 0.1)
-                                : AppColors.error.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            barber.isActive ? 'Aktif' : 'Nonaktif',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: barber.isActive ? AppColors.success : AppColors.error,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined),
-                          onPressed: () => _onEditBarber(barber),
-                          tooltip: 'Edit',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          color: AppColors.error,
-                          onPressed: () => _onDeleteBarber(barber),
-                          tooltip: 'Hapus',
-                        ),
-                      ],
+                    child: Icon(
+                      Icons.person,
+                      color: barber.isActive ? AppColors.primary : AppColors.textSecondaryLight,
                     ),
                   ),
-                );
-              },
-            ),
+                  title: Text(
+                    barber.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: barber.isActive ? null : AppColors.textSecondaryLight,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      Text(barber.specialty),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: barber.isActive
+                              ? AppColors.success.withValues(alpha: 0.1)
+                              : AppColors.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          barber.isActive ? 'Aktif' : 'Nonaktif',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: barber.isActive ? AppColors.success : AppColors.error,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () => _onEditBarber(barber),
+                        tooltip: 'Edit',
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        color: AppColors.error,
+                        onPressed: () => _onDeleteBarber(barber),
+                        tooltip: 'Hapus',
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _onAddBarber,
         icon: const Icon(Icons.person_add),
@@ -211,20 +223,21 @@ class _BarberManagementScreenState extends State<BarberManagementScreen> {
   }
 }
 
-class BarberDialog extends StatefulWidget {
+class BarberDialog extends ConsumerStatefulWidget {
   final BarberModel? barber;
 
   const BarberDialog({super.key, this.barber});
 
   @override
-  State<BarberDialog> createState() => _BarberDialogState();
+  ConsumerState<BarberDialog> createState() => _BarberDialogState();
 }
 
-class _BarberDialogState extends State<BarberDialog> {
+class _BarberDialogState extends ConsumerState<BarberDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _specialtyController;
   late bool _isActive;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -241,16 +254,38 @@ class _BarberDialogState extends State<BarberDialog> {
     super.dispose();
   }
 
-  void _onSubmit() {
-    if (_formKey.currentState!.validate()) {
-      final barber = BarberModel(
-        id: widget.barber?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        name: _nameController.text.trim(),
-        specialty: _specialtyController.text.trim(),
-        isActive: _isActive,
-      );
+  Future<void> _onSubmit() async {
+    if (!_formKey.currentState!.validate()) return;
 
-      Navigator.of(context).pop(barber);
+    setState(() => _isSubmitting = true);
+
+    try {
+      if (widget.barber == null) {
+        await ref.read(createBarberProvider).call(
+          name: _nameController.text.trim(),
+          specialty: _specialtyController.text.trim(),
+        );
+      } else {
+        await ref.read(updateBarberProvider).call(
+          id: widget.barber!.id,
+          name: _nameController.text.trim(),
+          specialty: _specialtyController.text.trim(),
+          isActive: _isActive,
+        );
+      }
+
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -306,12 +341,18 @@ class _BarberDialogState extends State<BarberDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
           child: const Text('Batal'),
         ),
         ElevatedButton(
-          onPressed: _onSubmit,
-          child: Text(isEdit ? 'Simpan' : 'Tambah'),
+          onPressed: _isSubmitting ? null : _onSubmit,
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(isEdit ? 'Simpan' : 'Tambah'),
         ),
       ],
     );

@@ -8,6 +8,7 @@ class AdminQueueCard extends StatelessWidget {
   final String status;
   final DateTime createdAt;
   final String? barberName;
+  final VoidCallback? onComplete;
 
   const AdminQueueCard({
     super.key,
@@ -17,6 +18,7 @@ class AdminQueueCard extends StatelessWidget {
     required this.status,
     required this.createdAt,
     this.barberName,
+    this.onComplete,
   });
 
   @override
@@ -114,7 +116,7 @@ class AdminQueueCard extends StatelessWidget {
             ),
             if (status == 'in_progress')
               ElevatedButton(
-                onPressed: () {},
+                onPressed: onComplete,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.success,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

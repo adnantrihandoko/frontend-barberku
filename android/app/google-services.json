@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "447567256711",
+    "project_id": "barberku-notif",
+    "storage_bucket": "barberku-notif.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:447567256711:android:f6d086df4dcc060fdf2c22",
+        "android_client_info": {
+          "package_name": "com.barberku.barberku_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpUIQzNdvCe8itIRZr9TViXqfh2yGXDV0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

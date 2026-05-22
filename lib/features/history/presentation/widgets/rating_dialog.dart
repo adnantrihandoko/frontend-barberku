@@ -28,7 +28,10 @@ class _RatingDialogState extends State<RatingDialog> {
       );
       return;
     }
-    Navigator.of(context).pop(_rating);
+    Navigator.of(context).pop({
+      'rating': _rating,
+      'comment': _commentController.text.trim(),
+    });
   }
 
   @override

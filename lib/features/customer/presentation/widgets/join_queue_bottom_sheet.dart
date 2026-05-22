@@ -1,44 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberku_app/core/theme/app_colors.dart';
-import 'package:barberku_app/features/customer/presentation/models/customer_models.dart';
+import 'package:barberku_app/features/admin/data/models/service_model.dart';
+import 'package:barberku_app/features/admin/data/models/barber_model.dart';
+import 'package:barberku_app/features/admin/presentation/providers/admin_providers.dart';
+import 'package:barberku_app/features/queue/presentation/providers/queue_provider.dart';
+import 'package:barberku_app/features/auth/presentation/providers/auth_provider.dart';
 
-class JoinQueueBottomSheet extends StatefulWidget {
+class JoinQueueBottomSheet extends ConsumerStatefulWidget {
   const JoinQueueBottomSheet({super.key});
 
   @override
-  State<JoinQueueBottomSheet> createState() => _JoinQueueBottomSheetState();
+  ConsumerState<JoinQueueBottomSheet> createState() => _JoinQueueBottomSheetState();
 }
 
-class _JoinQueueBottomSheetState extends State<JoinQueueBottomSheet> {
-  final _nameController = TextEditingController();
+class _JoinQueueBottomSheetState extends ConsumerState<JoinQueueBottomSheet> {
   ServiceModel? _selectedService;
   BarberModel? _selectedBarber;
   bool _isLoading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _nameController.text = 'Pelanggan';
+  String _customerId() {
+    final authState = ref.read(authStateProvider);
+    return authState.user?.id ?? 'test-customer-001';
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  void _onJoinQueue() {
-    if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Nama wajib diisi'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
+  void _onJoinQueue() async {
     if (_selectedService == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -49,28 +36,52 @@ class _JoinQueueBottomSheetState extends State<JoinQueueBottomSheet> {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
-    Future.delayed(const Duration(seconds: 1), () {
+    try {
+      final authState = ref.read(authStateProvider);
+      final joinQueue = ref.read(joinQueueProvider);
+      final entity = await joinQueue.call(
+        customerId: _customerId(),
+        customerName: authState.user?.name ?? 'Pelanggan',
+        serviceId: _selectedService!.id,
+        serviceName: _selectedService!.name,
+        barberId: _selectedBarber?.id,
+      );
+
       if (!mounted) return;
 
-      setState(() {
-        _isLoading = false;
-      });
-
       Navigator.of(context).pop({
-        'customerName': _nameController.text.trim(),
+        'id': entity.id,
+        'queueNumber': entity.queueNumber,
         'service': _selectedService,
         'barber': _selectedBarber,
-        'queueNumber': 5,
+        'customerName': entity.customerName,
+        'status': entity.status,
+        'position': entity.position,
       });
-    });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final servicesAsync = ref.watch(servicesProvider);
+    final barbersAsync = ref.watch(barbersProvider);
+    final services = servicesAsync.valueOrNull;
+    final barbers = barbersAsync.valueOrNull;
+    final isFetching = servicesAsync.isLoading || barbersAsync.isLoading;
+    final fetchError = servicesAsync.error?.toString() ?? barbersAsync.error?.toString();
+
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -109,134 +120,141 @@ class _JoinQueueBottomSheetState extends State<JoinQueueBottomSheet> {
                     ),
               ),
               const SizedBox(height: 24),
-              TextField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nama Anda',
-                  hintText: 'Masukkan nama lengkap',
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Pilih Layanan',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ...dummyServices.map((service) => _ServiceTile(
-                    service: service,
-                    isSelected: _selectedService?.id == service.id,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      setState(() {
-                        _selectedService = service;
-                      });
-                    },
-                  )),
-              const SizedBox(height: 16),
-              const Text(
-                'Pilih Barber (Opsional)',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _BarberChip(
-                    barber: null,
-                    isSelected: _selectedBarber == null,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      setState(() {
-                        _selectedBarber = null;
-                      });
-                    },
+              if (isFetching)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: CircularProgressIndicator(),
                   ),
-                  ...dummyBarbers.map((barber) => _BarberChip(
-                        barber: barber,
-                        isSelected: _selectedBarber?.id == barber.id,
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          setState(() {
-                            _selectedBarber = barber;
-                          });
-                        },
-                      )),
-                ],
-              ),
-              const SizedBox(height: 24),
-              if (_selectedService != null)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.2),
+                )
+              else if (fetchError != null)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                        const SizedBox(height: 12),
+                        Text(fetchError, textAlign: TextAlign.center),
+                      ],
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _selectedService!.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
-                            ),
-                          ),
-                          Text(
-                            'Estimasi: ${_selectedService!.durationMinutes} menit',
-                            style: TextStyle(
-                              color: AppColors.textSecondaryLight,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        'Rp${_selectedService!.price.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
+                )
+              else ...[
+                const Text(
+                  'Pilih Layanan',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _onJoinQueue,
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          'Ambil Antrian',
-                          style: TextStyle(fontSize: 16),
-                        ),
+                const SizedBox(height: 8),
+                ...(services ?? []).map((service) => _ServiceTile(
+                      service: service,
+                      isSelected: _selectedService?.id == service.id,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _selectedService = service);
+                      },
+                    )),
+                const SizedBox(height: 16),
+                const Text(
+                  'Pilih Barber (Opsional)',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _BarberChip(
+                      barber: null,
+                      isSelected: _selectedBarber == null,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _selectedBarber = null);
+                      },
+                    ),
+                    ...(barbers ?? []).map((barber) => _BarberChip(
+                          barber: barber,
+                          isSelected: _selectedBarber?.id == barber.id,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _selectedBarber = barber);
+                          },
+                        )),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                if (_selectedService != null)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _selectedService!.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Text(
+                              'Estimasi: ${_selectedService!.duration} menit',
+                              style: TextStyle(
+                                color: AppColors.textSecondaryLight,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          'Rp${_selectedService!.price.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: (_isLoading || isFetching) ? null : _onJoinQueue,
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text(
+                            'Ambil Antrian',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
             ],
           ),
@@ -293,7 +311,7 @@ class _ServiceTile extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${service.durationMinutes} menit • Rp${service.price.toStringAsFixed(0)}',
+                    '${service.duration} menit • Rp${service.price.toStringAsFixed(0)}',
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondaryLight,

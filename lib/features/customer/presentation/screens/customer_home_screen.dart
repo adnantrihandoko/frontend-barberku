@@ -6,6 +6,9 @@ import 'package:barberku_app/features/customer/presentation/widgets/realtime_que
 import 'package:barberku_app/features/customer/presentation/widgets/customer_queue_list.dart';
 import 'package:barberku_app/features/customer/presentation/widgets/called_dialog.dart';
 import 'package:barberku_app/features/customer/presentation/widgets/cancel_dialogs.dart';
+import 'package:barberku_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:barberku_app/features/queue/presentation/providers/queue_provider.dart';
+import 'package:barberku_app/features/queue/domain/entities/queue_entity.dart';
 
 class CustomerHomeScreen extends ConsumerStatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -15,14 +18,28 @@ class CustomerHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
-  Map<String, dynamic>? _activeQueue;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(webSocketProvider.notifier).connect();
     });
+  }
+
+  String _customerId() {
+    final authState = ref.read(authStateProvider);
+    return authState.user?.id ?? 'test-customer-001';
+  }
+
+  QueueEntity? _findActiveQueue() {
+    final queueState = ref.watch(queueListStateProvider);
+    final customerId = _customerId();
+    final active = queueState.queues.where((q) =>
+      q.customerId == customerId &&
+      (q.status == AppConstants.queueStatusWaiting ||
+       q.status == AppConstants.queueStatusCalled ||
+       q.status == AppConstants.queueStatusInProgress));
+    return active.isNotEmpty ? active.first : null;
   }
 
   void _onJoinQueue() async {
@@ -36,9 +53,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     );
 
     if (result != null && mounted) {
-      setState(() {
-        _activeQueue = result;
-      });
+      ref.read(queueListStateProvider.notifier).refresh();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -49,7 +64,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Antrian #${result['queueNumber']} berhasil! ${result['service'].name}',
+                    'Antrian #${result['queueNumber']} berhasil! ${(result['service'] as dynamic)?.name ?? ''}',
                   ),
                 ),
               ],
@@ -63,20 +78,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     }
   }
 
-  void _onViewMyQueue() {
-    if (_activeQueue != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Posisi Anda: #${_activeQueue!['queueNumber']}'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
-  void _onCancelQueue() {
-    if (_activeQueue == null) return;
-
+  void _onCancelQueue(QueueEntity activeQueue) async {
     final cancelState = ref.read(cancelProvider);
 
     if (!cancelState.canCancel) {
@@ -99,17 +101,15 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
       builder: (dialogContext) => CancelConfirmationDialog(
         remainingCancels: cancelState.remainingCancels,
         onConfirm: () async {
-          final success = await ref.read(cancelProvider.notifier).cancelQueue(_activeQueue!['id'] ?? '');
-          
-          if (success && mounted) {
-            setState(() {
-              _activeQueue = null;
-            });
-            
+          try {
+            await ref.read(cancelQueueProvider).call(activeQueue.id);
+            await ref.read(cancelProvider.notifier).cancelQueue(activeQueue.id);
+
             if (mounted) {
+              ref.read(queueListStateProvider.notifier).refresh();
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Row(
+                const SnackBar(
+                  content: Row(
                     children: [
                       Icon(Icons.check_circle, color: Colors.white),
                       SizedBox(width: 12),
@@ -121,14 +121,16 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                 ),
               );
             }
-          } else if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Gagal membatalkan antrian'),
-                backgroundColor: AppColors.error,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(e.toString().replaceFirst('Exception: ', '')),
+                  backgroundColor: AppColors.error,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
           }
         },
       ),
@@ -138,7 +140,8 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final turnState = ref.watch(turnNotificationProvider);
-    
+    final activeQueue = _findActiveQueue();
+
     if (turnState.isCalled) {
       return CalledDialog(
         customerName: turnState.customerName ?? 'Pelanggan',
@@ -163,8 +166,8 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
           ),
         ],
       ),
-      body: _activeQueue != null
-          ? _buildActiveQueueView()
+      body: activeQueue != null
+          ? _buildActiveQueueView(activeQueue)
           : _buildJoinQueueView(),
     );
   }
@@ -254,7 +257,10 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     );
   }
 
-  Widget _buildActiveQueueView() {
+  Widget _buildActiveQueueView(QueueEntity activeQueue) {
+    final statusText = _statusDisplayText(activeQueue.status);
+    final positionText = '#${activeQueue.position}';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -280,10 +286,10 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                         color: AppColors.primary,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Text(
-                          '#5',
-                          style: TextStyle(
+                          '#${activeQueue.queueNumber}',
+                          style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -304,15 +310,15 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                             ),
                           ),
                           Text(
-                            _activeQueue!['service'].name,
+                            activeQueue.serviceName,
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          if (_activeQueue!['barber'] != null)
+                          if (activeQueue.barberId != null)
                             Text(
-                              'Barber: ${_activeQueue!['barber'].name}',
+                              'Barber: ${activeQueue.barberId}',
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: AppColors.textSecondaryLight,
@@ -330,17 +336,17 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                     _StatusInfo(
                       icon: Icons.schedule,
                       label: 'Status',
-                      value: 'Menunggu',
+                      value: statusText,
                     ),
                     _StatusInfo(
                       icon: Icons.timer,
                       label: 'Estimasi',
-                      value: '15 menit',
+                      value: '${_estimateMinutes(activeQueue)} menit',
                     ),
                     _StatusInfo(
                       icon: Icons.format_list_numbered,
                       label: 'Posisi',
-                      value: '#3',
+                      value: positionText,
                     ),
                   ],
                 ),
@@ -349,7 +355,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: _onViewMyQueue,
+                        onPressed: () => _showQueuePosition(activeQueue),
                         icon: const Icon(Icons.visibility),
                         label: const Text('Lihat Antrian'),
                       ),
@@ -360,9 +366,9 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                         builder: (context, ref, child) {
                           final cancelState = ref.watch(cancelProvider);
                           final canCancel = cancelState.canCancel;
-                          
+
                           return ElevatedButton.icon(
-                            onPressed: canCancel ? _onCancelQueue : null,
+                            onPressed: canCancel ? () => _onCancelQueue(activeQueue) : null,
                             icon: const Icon(Icons.cancel),
                             label: Text(canCancel ? 'Batalkan' : 'Tidak Bisa'),
                             style: ElevatedButton.styleFrom(
@@ -391,6 +397,34 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
         ],
       ),
     );
+  }
+
+  void _showQueuePosition(QueueEntity activeQueue) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Posisi Anda: #${activeQueue.queueNumber}'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  String _statusDisplayText(String status) {
+    switch (status) {
+      case 'waiting':
+        return 'Menunggu';
+      case 'called':
+        return 'Dipanggil';
+      case 'in_progress':
+        return 'Dalam Proses';
+      default:
+        return status;
+    }
+  }
+
+  int _estimateMinutes(QueueEntity queue) {
+    final position = queue.position;
+    if (position <= 1) return 5;
+    return position * 15;
   }
 }
 

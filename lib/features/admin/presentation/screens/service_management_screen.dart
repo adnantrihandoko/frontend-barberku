@@ -1,89 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberku_app/core/theme/app_colors.dart';
+import 'package:barberku_app/features/admin/presentation/providers/admin_providers.dart';
+import 'package:barberku_app/features/admin/data/models/service_model.dart';
 
-class ServiceModel {
-  final String id;
-  final String name;
-  final String description;
-  final double price;
-  final int durationMinutes;
-  final bool isActive;
-
-  const ServiceModel({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.price,
-    required this.durationMinutes,
-    this.isActive = true,
-  });
-}
-
-class ServiceManagementScreen extends StatefulWidget {
+class ServiceManagementScreen extends ConsumerStatefulWidget {
   const ServiceManagementScreen({super.key});
 
   @override
-  State<ServiceManagementScreen> createState() => _ServiceManagementScreenState();
+  ConsumerState<ServiceManagementScreen> createState() => _ServiceManagementScreenState();
 }
 
-class _ServiceManagementScreenState extends State<ServiceManagementScreen> {
-  final List<ServiceModel> _services = [
-    const ServiceModel(
-      id: '1',
-      name: 'Potong Rambut',
-      description: 'Potong rambut standar dengan gaya modern',
-      price: 35000,
-      durationMinutes: 30,
-    ),
-    const ServiceModel(
-      id: '2',
-      name: 'Cuci & Potong',
-      description: 'Cuci rambut terlebih dahulu, lalu potong',
-      price: 50000,
-      durationMinutes: 45,
-    ),
-    const ServiceModel(
-      id: '3',
-      name: 'Potong Jenggot',
-      description: 'Merapikan dan membentuk jenggot',
-      price: 25000,
-      durationMinutes: 20,
-    ),
-    const ServiceModel(
-      id: '4',
-      name: 'Pewarnaan',
-      description: 'Mewarnai rambut dengan pilihan warna',
-      price: 150000,
-      durationMinutes: 90,
-    ),
-  ];
-
+class _ServiceManagementScreenState extends ConsumerState<ServiceManagementScreen> {
   void _onAddService() async {
-    final result = await showDialog<ServiceModel>(
+    final result = await showDialog<bool>(
       context: context,
       builder: (context) => const ServiceDialog(),
     );
 
-    if (result != null) {
-      setState(() {
-        _services.add(result);
-      });
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Layanan berhasil ditambahkan'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
   void _onEditService(ServiceModel service) async {
-    final result = await showDialog<ServiceModel>(
+    final result = await showDialog<bool>(
       context: context,
       builder: (context) => ServiceDialog(service: service),
     );
 
-    if (result != null) {
-      setState(() {
-        final index = _services.indexWhere((s) => s.id == result.id);
-        if (index != -1) {
-          _services[index] = result;
-        }
-      });
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Layanan berhasil diperbarui'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -111,30 +70,62 @@ class _ServiceManagementScreenState extends State<ServiceManagementScreen> {
     );
 
     if (confirmed == true) {
-      setState(() {
-        _services.removeWhere((s) => s.id == service.id);
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Layanan "${service.name}" berhasil dihapus'),
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      try {
+        await ref.read(deleteServiceProvider).call(service.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Layanan "${service.name}" berhasil dihapus'),
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString().replaceFirst('Exception: ', '')),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final servicesAsync = ref.watch(servicesProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manajemen Layanan'),
       ),
-      body: _services.isEmpty
-          ? const Center(
+      body: servicesAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+              const SizedBox(height: 16),
+              Text(
+                error.toString().replaceFirst('Exception: ', ''),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(servicesProvider),
+                child: const Text('Coba Lagi'),
+              ),
+            ],
+          ),
+        ),
+        data: (services) {
+          if (services.isEmpty) {
+            return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -143,83 +134,87 @@ class _ServiceManagementScreenState extends State<ServiceManagementScreen> {
                   Text('Belum ada layanan'),
                 ],
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _services.length,
-              itemBuilder: (context, index) {
-                final service = _services[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: service.isActive
-                            ? AppColors.primary.withValues(alpha: 0.1)
-                            : AppColors.textSecondaryLight.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.content_cut,
-                        color: service.isActive ? AppColors.primary : AppColors.textSecondaryLight,
-                      ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: services.length,
+            itemBuilder: (context, index) {
+              final service = services[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: service.isActive
+                          ? AppColors.primary.withValues(alpha: 0.1)
+                          : AppColors.textSecondaryLight.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    title: Text(
-                      service.name,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: service.isActive ? null : AppColors.textSecondaryLight,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 4),
-                        Text(service.description),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Text(
-                              'Rp${service.price.toStringAsFixed(0)}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              '${service.durationMinutes} menit',
-                              style: const TextStyle(
-                                color: AppColors.textSecondaryLight,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined),
-                          onPressed: () => _onEditService(service),
-                          tooltip: 'Edit',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          color: AppColors.error,
-                          onPressed: () => _onDeleteService(service),
-                          tooltip: 'Hapus',
-                        ),
-                      ],
+                    child: Icon(
+                      Icons.content_cut,
+                      color: service.isActive ? AppColors.primary : AppColors.textSecondaryLight,
                     ),
                   ),
-                );
-              },
-            ),
+                  title: Text(
+                    service.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: service.isActive ? null : AppColors.textSecondaryLight,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      Text(service.description),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            'Rp${service.price.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '${service.duration} menit',
+                            style: const TextStyle(
+                              color: AppColors.textSecondaryLight,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () => _onEditService(service),
+                        tooltip: 'Edit',
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        color: AppColors.error,
+                        onPressed: () => _onDeleteService(service),
+                        tooltip: 'Hapus',
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _onAddService,
         icon: const Icon(Icons.add),
@@ -229,22 +224,23 @@ class _ServiceManagementScreenState extends State<ServiceManagementScreen> {
   }
 }
 
-class ServiceDialog extends StatefulWidget {
+class ServiceDialog extends ConsumerStatefulWidget {
   final ServiceModel? service;
 
   const ServiceDialog({super.key, this.service});
 
   @override
-  State<ServiceDialog> createState() => _ServiceDialogState();
+  ConsumerState<ServiceDialog> createState() => _ServiceDialogState();
 }
 
-class _ServiceDialogState extends State<ServiceDialog> {
+class _ServiceDialogState extends ConsumerState<ServiceDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _descriptionController;
   late TextEditingController _priceController;
   late TextEditingController _durationController;
   late bool _isActive;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -255,7 +251,7 @@ class _ServiceDialogState extends State<ServiceDialog> {
       text: widget.service?.price.toStringAsFixed(0) ?? '',
     );
     _durationController = TextEditingController(
-      text: widget.service?.durationMinutes.toString() ?? '',
+      text: widget.service?.duration.toString() ?? '',
     );
     _isActive = widget.service?.isActive ?? true;
   }
@@ -269,18 +265,42 @@ class _ServiceDialogState extends State<ServiceDialog> {
     super.dispose();
   }
 
-  void _onSubmit() {
-    if (_formKey.currentState!.validate()) {
-      final service = ServiceModel(
-        id: widget.service?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        name: _nameController.text.trim(),
-        description: _descriptionController.text.trim(),
-        price: double.parse(_priceController.text),
-        durationMinutes: int.parse(_durationController.text),
-        isActive: _isActive,
-      );
+  Future<void> _onSubmit() async {
+    if (!_formKey.currentState!.validate()) return;
 
-      Navigator.of(context).pop(service);
+    setState(() => _isSubmitting = true);
+
+    try {
+      if (widget.service == null) {
+        await ref.read(createServiceProvider).call(
+          name: _nameController.text.trim(),
+          description: _descriptionController.text.trim(),
+          price: double.parse(_priceController.text),
+          duration: int.parse(_durationController.text),
+        );
+      } else {
+        await ref.read(updateServiceProvider).call(
+          id: widget.service!.id,
+          name: _nameController.text.trim(),
+          description: _descriptionController.text.trim(),
+          price: double.parse(_priceController.text),
+          duration: int.parse(_durationController.text),
+          isActive: _isActive,
+        );
+      }
+
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -383,12 +403,18 @@ class _ServiceDialogState extends State<ServiceDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
           child: const Text('Batal'),
         ),
         ElevatedButton(
-          onPressed: _onSubmit,
-          child: Text(isEdit ? 'Simpan' : 'Tambah'),
+          onPressed: _isSubmitting ? null : _onSubmit,
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(isEdit ? 'Simpan' : 'Tambah'),
         ),
       ],
     );

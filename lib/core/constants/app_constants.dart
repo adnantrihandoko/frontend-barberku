@@ -19,6 +19,8 @@ class AppConstants {
   static const String apiServices = '/api/v1/services';
   static const String apiBarbers = '/api/v1/barbers';
   static const String apiHistory = '/api/v1/history';
+  static const String apiSettings = '/api/v1/settings';
+  static const String apiStats = '/api/v1/stats';
   
   // WebSocket Events
   static const String wsEventQueueUpdate = 'queue_update';

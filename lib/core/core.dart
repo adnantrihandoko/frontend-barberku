@@ -10,4 +10,5 @@ export 'providers/active_queue_provider.dart';
 export 'providers/fcm_provider.dart';
 export 'providers/fcm_register_provider.dart';
 export 'services/fcm_service.dart';
+export 'services/api_client.dart';
 export 'utils/logger.dart';

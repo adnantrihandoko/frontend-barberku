@@ -8,7 +8,17 @@ class AuthRemoteDataSource {
   final Dio dio;
   final FlutterSecureStorage storage;
   
-  AuthRemoteDataSource({required this.dio, required this.storage});
+  AuthRemoteDataSource({required this.dio, required this.storage}) {
+    dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final token = await storage.read(key: AppConstants.keyAuthToken);
+        if (token != null) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        handler.next(options);
+      },
+    ));
+  }
   
   Future<LoginResponseModel> loginWithPin({required String email, required String pin}) async {
     try {

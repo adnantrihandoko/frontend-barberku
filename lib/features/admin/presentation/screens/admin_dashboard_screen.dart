@@ -8,6 +8,8 @@ import 'package:barberku_app/features/admin/presentation/screens/service_managem
 import 'package:barberku_app/features/admin/presentation/screens/barber_management_screen.dart';
 import 'package:barberku_app/features/admin/presentation/screens/store_settings_screen.dart';
 import 'package:barberku_app/features/admin/presentation/screens/stats_dashboard_screen.dart';
+import 'package:barberku_app/features/queue/presentation/providers/queue_provider.dart';
+
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -31,13 +33,32 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     super.dispose();
   }
 
-  void _onCallNext() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Memanggil antrian berikutnya...'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  Future<void> _onCallNext() async {
+    final waitingQueues = ref.read(queueListStateProvider).queues.where((q) => q.status == 'waiting').toList();
+    if (waitingQueues.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak ada antrian yang menunggu'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    try {
+      await ref.read(callQueueProvider).call(waitingQueues.first.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Memanggil #${waitingQueues.first.queueNumber} - ${waitingQueues.first.customerName}'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal: $e'), backgroundColor: AppColors.error, behavior: SnackBarBehavior.floating),
+        );
+      }
+    }
   }
 
   void _onAddWalkIn() {

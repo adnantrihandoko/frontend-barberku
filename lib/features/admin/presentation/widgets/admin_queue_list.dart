@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberku_app/core/theme/app_colors.dart';
 import 'package:barberku_app/features/admin/presentation/widgets/admin_queue_card.dart';
+import 'package:barberku_app/features/queue/presentation/providers/queue_provider.dart';
 
 class AdminQueueList extends ConsumerWidget {
   final String status;
@@ -15,10 +16,32 @@ class AdminQueueList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final queues = _getDummyQueues();
-    final filteredQueues = queues.where((q) => q['status'] == status).toList();
+    final state = ref.watch(queueListStateProvider);
+    final queues = state.queues.where((q) => q.status == status).toList();
 
-    if (filteredQueues.isEmpty) {
+    if (state.isLoading && state.queues.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (state.error != null && state.queues.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+            const SizedBox(height: 16),
+            Text(state.error!, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => ref.read(queueListStateProvider.notifier).refresh(),
+              child: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (queues.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -42,78 +65,99 @@ class AdminQueueList extends ConsumerWidget {
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: filteredQueues.length,
+      itemCount: queues.length,
       itemBuilder: (context, index) {
-        final queue = filteredQueues[index];
+        final queue = queues[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Dismissible(
-            key: Key(queue['id'] as String),
-            background: _buildBackground(
-              context,
-              Icons.phone,
-              Colors.green,
-              alignment: Alignment.centerLeft,
-            ),
-            secondaryBackground: _buildBackground(
-              context,
-              Icons.skip_next,
-              Colors.orange,
-              alignment: Alignment.centerRight,
-            ),
+            key: Key(queue.id),
             confirmDismiss: (direction) async {
               if (direction == DismissDirection.startToEnd) {
+                if (status != 'waiting') return false;
                 return await _showConfirmDialog(context, 'Panggil antrian ini?');
               } else if (direction == DismissDirection.endToStart) {
+                if (status != 'waiting') return false;
                 return await _showConfirmDialog(context, 'Tandai sebagai no-show (lewati)?');
               }
               return false;
             },
-            onDismissed: (direction) {
+            onDismissed: (direction) async {
               if (direction == DismissDirection.startToEnd) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Antrian #${queue['queue_number']} dipanggil'),
-                    backgroundColor: Colors.green,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-                onCallNext?.call();
+                try {
+                  await ref.read(callQueueProvider).call(queue.id);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Antrian #${queue.queueNumber} dipanggil'),
+                        backgroundColor: Colors.green,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ref.read(queueListStateProvider.notifier).refresh();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Gagal: $e'), backgroundColor: AppColors.error, behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                }
               } else if (direction == DismissDirection.endToStart) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Antrian #${queue['queue_number']} dilewati'),
-                    backgroundColor: Colors.orange,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                try {
+                  await ref.read(skipQueueProvider).call(queue.id);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Antrian #${queue.queueNumber} dilewati'),
+                        backgroundColor: Colors.orange,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ref.read(queueListStateProvider.notifier).refresh();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Gagal: $e'), backgroundColor: AppColors.error, behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                }
               }
             },
             child: AdminQueueCard(
-              queueNumber: queue['queue_number'] as int,
-              customerName: queue['customer_name'] as String,
-              serviceName: queue['service_name'] as String,
-              status: queue['status'] as String,
-              createdAt: queue['created_at'] as DateTime,
-              barberName: queue['barber_name'] as String?,
+              queueNumber: queue.queueNumber,
+              customerName: queue.customerName,
+              serviceName: queue.serviceName,
+              status: queue.status,
+              createdAt: queue.createdAt,
+              barberName: queue.barberId,
+              onComplete: status == 'in_progress'
+                  ? () async {
+                      try {
+                        await ref.read(completeQueueProvider).call(queue.id);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Antrian #${queue.queueNumber} selesai'),
+                              backgroundColor: AppColors.success,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Gagal: $e'), backgroundColor: AppColors.error, behavior: SnackBarBehavior.floating),
+                          );
+                        }
+                      }
+                    }
+                  : null,
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildBackground(
-    BuildContext context,
-    IconData icon,
-    Color color, {
-    required Alignment alignment,
-  }) {
-    return Container(
-      color: color,
-      alignment: alignment,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Icon(icon, color: Colors.white),
     );
   }
 
@@ -149,46 +193,5 @@ class AdminQueueList extends ConsumerWidget {
       default:
         return status;
     }
-  }
-
-  List<Map<String, dynamic>> _getDummyQueues() {
-    return [
-      {
-        'id': '1',
-        'queue_number': 1,
-        'customer_name': 'Budi Santoso',
-        'service_name': 'Potong Rambut',
-        'status': 'waiting',
-        'created_at': DateTime.now().subtract(const Duration(minutes: 15)),
-        'barber_name': 'Andi',
-      },
-      {
-        'id': '2',
-        'queue_number': 2,
-        'customer_name': 'Siti Aminah',
-        'service_name': 'Cuci & Potong',
-        'status': 'waiting',
-        'created_at': DateTime.now().subtract(const Duration(minutes: 10)),
-        'barber_name': null,
-      },
-      {
-        'id': '3',
-        'queue_number': 3,
-        'customer_name': 'Ahmad Rizki',
-        'service_name': 'Potong Jenggot',
-        'status': 'in_progress',
-        'created_at': DateTime.now().subtract(const Duration(minutes: 30)),
-        'barber_name': 'Budi',
-      },
-      {
-        'id': '4',
-        'queue_number': 4,
-        'customer_name': 'Dewi Lestari',
-        'service_name': 'Potong Rambut',
-        'status': 'completed',
-        'created_at': DateTime.now().subtract(const Duration(minutes: 45)),
-        'barber_name': 'Andi',
-      },
-    ];
   }
 }

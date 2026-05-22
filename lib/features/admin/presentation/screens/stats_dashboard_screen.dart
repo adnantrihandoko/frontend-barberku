@@ -1,23 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:barberku_app/core/theme/app_colors.dart';
+import 'package:barberku_app/features/admin/presentation/providers/admin_providers.dart';
 
-class StatsDashboardScreen extends StatefulWidget {
+class StatsDashboardScreen extends ConsumerStatefulWidget {
   const StatsDashboardScreen({super.key});
 
   @override
-  State<StatsDashboardScreen> createState() => _StatsDashboardScreenState();
+  ConsumerState<StatsDashboardScreen> createState() => _StatsDashboardScreenState();
 }
 
-class _StatsDashboardScreenState extends State<StatsDashboardScreen> {
+class _StatsDashboardScreenState extends ConsumerState<StatsDashboardScreen> {
   DateTime _selectedDate = DateTime.now();
-
-  final Map<String, dynamic> _stats = {
-    'total_served': 12,
-    'total_canceled': 2,
-    'avg_wait_time_min': 15.5,
-    'avg_service_time_min': 25.0,
-    'total_revenue': 360000.0,
-  };
 
   Future<void> _selectDate() async {
     final picked = await showDatePicker(
@@ -35,6 +30,7 @@ class _StatsDashboardScreenState extends State<StatsDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final statsAsync = ref.watch(statsProvider);
     final dateFormat = DateFormat('EEEE, dd MMMM yyyy', 'id_ID');
 
     return Scaffold(
@@ -48,64 +44,85 @@ class _StatsDashboardScreenState extends State<StatsDashboardScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Text(
-                dateFormat.format(_selectedDate),
-                style: Theme.of(context).textTheme.titleMedium,
+      body: statsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+              const SizedBox(height: 16),
+              Text(
+                error.toString().replaceFirst('Exception: ', ''),
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 24),
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 1.3,
-              children: [
-                _StatCard(
-                  title: 'Total Dilayani',
-                  value: _stats['total_served'].toString(),
-                  icon: Icons.check_circle_outline,
-                  color: Colors.green,
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(statsProvider),
+                child: const Text('Coba Lagi'),
+              ),
+            ],
+          ),
+        ),
+        data: (stats) => SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Text(
+                  dateFormat.format(_selectedDate),
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-                _StatCard(
-                  title: 'Dibatalkan',
-                  value: _stats['total_canceled'].toString(),
-                  icon: Icons.cancel_outlined,
-                  color: Colors.red,
-                ),
-                _StatCard(
-                  title: 'Rata-rata Tunggu',
-                  value: '${_stats['avg_wait_time_min']} mnt',
-                  icon: Icons.hourglass_empty,
-                  color: Colors.orange,
-                ),
-                _StatCard(
-                  title: 'Rata-rata Layanan',
-                  value: '${_stats['avg_service_time_min']} mnt',
-                  icon: Icons.cut,
-                  color: Colors.blue,
-                ),
-                _StatCard(
-                  title: 'Total Pendapatan',
-                  value: NumberFormat.currency(
-                    locale: 'id_ID',
-                    symbol: 'Rp ',
-                    decimalDigits: 0,
-                  ).format(_stats['total_revenue']),
-                  icon: Icons.attach_money,
-                  color: Colors.purple,
-                  crossAxisCellCount: 2,
-                ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 24),
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: 1.3,
+                children: [
+                  _StatCard(
+                    title: 'Total Dilayani',
+                    value: stats.totalServed.toString(),
+                    icon: Icons.check_circle_outline,
+                    color: Colors.green,
+                  ),
+                  _StatCard(
+                    title: 'Dibatalkan',
+                    value: stats.totalCanceled.toString(),
+                    icon: Icons.cancel_outlined,
+                    color: Colors.red,
+                  ),
+                  _StatCard(
+                    title: 'Rata-rata Tunggu',
+                    value: '${stats.avgWaitTimeMin.toStringAsFixed(1)} mnt',
+                    icon: Icons.hourglass_empty,
+                    color: Colors.orange,
+                  ),
+                  _StatCard(
+                    title: 'Rata-rata Layanan',
+                    value: '${stats.avgServiceTimeMin.toStringAsFixed(1)} mnt',
+                    icon: Icons.cut,
+                    color: Colors.blue,
+                  ),
+                  _StatCard(
+                    title: 'Total Pendapatan',
+                    value: NumberFormat.currency(
+                      locale: 'id_ID',
+                      symbol: 'Rp ',
+                      decimalDigits: 0,
+                    ).format(stats.totalRevenue),
+                    icon: Icons.attach_money,
+                    color: Colors.purple,
+                    crossAxisCellCount: 2,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
